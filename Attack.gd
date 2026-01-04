@@ -9,10 +9,15 @@ signal attack_started
 ## Emitted when the attack has completed its recovery time.
 signal attack_finished
 
+signal attack_successful_hit(attack: Attack, hit_vector: Vector2)
+
 signal recovery_completed
 
 ## The name of this attack (e.g., "Jab", "Heavy Slash", "Fireball").
 @export var attack_name: String = "Basic Attack"
+
+## If true, the attack automatically enables its hitboxes on ready.
+@export var auto_enable: bool = false
 
 ## The amount of damage this attack deals.
 @export_range(0.0, 1000.0, 0.5) var damage: float = 10.0
@@ -22,6 +27,9 @@ signal recovery_completed
 
 ## Duration in seconds that the game freezes on hit for impact effect.
 @export_range(0.0, 1.0, 0.01) var hitstop: float = 0.1
+
+## Intensity of camera shake when the attack hits a target.
+@export_range(0.0, 1.0, 0.01) var camera_shake	: float = 0.2
 
 ## Time in seconds before the attacker can perform another action after this attack.
 @export_range(0.0, 5.0, 0.05) var recovery_time: float = 0.5
@@ -122,7 +130,7 @@ func play_attack_sounds() -> void:
 func _deactivate_hitboxes() -> void:
 	for hitbox in hitboxes:
 		if hitbox:
-			hitbox.monitoring = false
+			hitbox.set_deferred("monitoring", false)
 
 ## Called when the attack finishes its recovery period.
 func finish_attack() -> void:
