@@ -27,20 +27,28 @@ func _on_process(_delta: float) -> void:
 func _ready() -> void:
 	self.area_entered.connect(self._on_area_entered)
 	self.body_entered.connect(self._on_body_entered)
+	self.area_exited.connect(self._on_area_exited)
+	
+	# Get reference to parent Attack if it exists
+	var parent = get_parent()
+	if parent is Attack and parent.has_signal("attack_started"):
+		parent_attack = parent
+		parent_attack.attack_started.connect(_on_attack_started)
+		parent_attack.attack_finished.connect(_on_attack_finished)
+
 	
 	# Gather all collision shapes
 	_gather_collision_shapes()
 	
 	# Disable collision shapes by default
-	disable_hitbox()
+	if parent_attack and parent_attack is Attack and parent_attack.auto_enable:
+		enable_hitbox()
+	else:
+		disable_hitbox()
+
 	_on_ready()
 	
-	# Get reference to parent Attack if it exists
-	var parent = get_parent()
-	if parent and parent.has_signal("attack_started"):
-		parent_attack = parent
-		parent_attack.attack_started.connect(_on_attack_started)
-		parent_attack.attack_finished.connect(_on_attack_finished)
+	
 
 func _process(_delta: float) -> void:
 	_on_process(_delta)
@@ -56,13 +64,13 @@ func _gather_collision_shapes() -> void:
 func enable_hitbox() -> void:
 	for shape in collision_shapes:
 		if shape:
-			shape.disabled = false
+			shape.set_deferred("disabled", false)
 
 ## Disables all child CollisionShape2D nodes, making the hitbox inactive.
 func disable_hitbox() -> void:
 	for shape in collision_shapes:
 		if shape:
-			shape.disabled = true
+			shape.set_deferred("disabled", true)
 
 ## Clears the hit log when a new attack starts and enables the hitbox.
 func _on_attack_started() -> void:
@@ -87,6 +95,11 @@ func register_hit(target: Node) -> void:
 		hit_log.append(target)
 		hit_registered.emit(target)
 
+func _on_area_exited(area: Area2D) -> void:
+	# Remove the target from hit log when they exit the hitbox area
+	if has_hit_target(area):
+		hit_log.erase(area)
+
 func _on_area_entered(area: Area2D) -> void:
 	# Check if we've already hit this target
 	if has_hit_target(area):
@@ -100,21 +113,20 @@ func _on_area_entered(area: Area2D) -> void:
 	if not parent_attack:
 		return
 	
-	# Register the hit
-	register_hit(area)
-	
 	# Call the take damage function of the HurtBox, passing the parent Attack
 	var hurtbox = area as HurtBox
-	if hurtbox and hurtbox.has_method("takeDamage"):
+	if hurtbox and hurtbox.has_method("takeDamage") and hurtbox.monitoring:
+
+		# Register the hit
+		register_hit(area)
+		if parent_attack.has_signal("attack_successful_hit"):
+			parent_attack.attack_successful_hit.emit(parent_attack, hit_vector)
 		hurtbox.takeDamage(parent_attack, hit_vector)
 
 func _on_body_entered(body: Node2D) -> void:
 	# Check if we've already hit this target
 	if has_hit_target(body):
 		return
-	
-	# Register the hit
-	register_hit(body)
 	
 	# TODO: Implement body hit logic here
 	pass
@@ -123,4 +135,3 @@ func _on_body_entered(body: Node2D) -> void:
 func calculate_damage() -> float:
 	# powerups multiply damage
 	return parent_attack.damage * parent_attack.power
-	
