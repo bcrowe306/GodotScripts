@@ -3,6 +3,7 @@ extends Node
 ## State base class for use in StateMachine
 class_name State
 
+## Indicates if the timeout has finished
 var timeout_finished: bool = false
 
 signal timeout_reached()
@@ -81,9 +82,7 @@ var active: bool = false:
 func set_active(value: bool, state_name: String):
 	active = value
 	if active:
-		state_duration = 0.0
-		timer_counter = 0.0
-		timeout_finished = false
+		reset_counters()
 		_enter(state_name)
 	else:
 		_exit(state_name)
@@ -104,3 +103,25 @@ func _process(delta: float) -> void:
 				timeout_finished = false
 				timer_counter = 0.0
 		_update(delta)
+
+func _physics_process(delta: float) -> void:
+	if active:
+		_physics_update(delta)
+
+func _physics_update(_delta: float):
+	pass
+
+func reset_counters() -> void:
+	state_duration = 0.0
+	timer_counter = 0.0
+	timeout_finished = false
+
+func __re_enter():
+	active = true
+	reset_counters()
+	_enter(str(self))
+
+func is_allowed_state(state_name: String) -> bool:
+	if allow_all:
+		return true
+	return state_name in allowed_states
